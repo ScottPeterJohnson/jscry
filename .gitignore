@@ -1,0 +1,12 @@
+/cache/
+/.gradle/
+/.idea/
+/build/
+/node_modules/
+/src/main/typescript/**/*.js
+/src/main/webextension/src/main/typescript/**/*.js
+/src/main/typescript/**/*.jsx
+*.js.map
+/.awcache/
+/out/
+/.cache-loader/

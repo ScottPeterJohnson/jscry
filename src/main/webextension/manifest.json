@@ -1,0 +1,31 @@
+{
+  "manifest_version": 2,
+  "name": "jScry Injector",
+  "version": "1.0.0",
+  "description": "Adds jScry instrumentation to arbitrary webpages.",
+  "icons": {
+	"48": "resources/icons/logo_48.png"
+  },
+  "content_scripts": [{
+	"matches": ["http://*/*", "https://*/*"],
+	"js": ["build/injector.js"],
+	"run_at": "document_start"
+  }],
+  "applications": {
+	"gecko": {
+	  "id": "injector@justmachinery.net"
+	}
+  },
+  "options_ui": {
+	"page": "resources/html/settings.html"
+  },
+  "permissions": ["storage", "activeTab"],
+  "browser_action": {
+	"default_icon": "resources/icons/logo_off_32.png",
+	"default_title": "jScry Injector",
+	"default_popup": "resources/html/popup.html"
+  },
+  "background": {
+	"scripts": ["build/background.js"]
+  }
+}

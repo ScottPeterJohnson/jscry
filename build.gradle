@@ -1,0 +1,235 @@
+//**********************
+//* Buildscript configuration
+//**********************
+buildscript {
+    ext.kotlin_version = '1.2.0'
+
+    repositories {
+        mavenCentral()
+        jcenter()
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+plugins {
+    id "com.moowork.node" version "1.1.0"
+    id "com.eriwen.gradle.js" version "2.14.1"
+    id 'com.github.ben-manes.versions' version '0.15.0'
+}
+
+apply plugin: 'idea'
+apply plugin: 'kotlin'
+apply plugin: 'application'
+
+
+
+//**********************
+//* Artifact Information
+//**********************
+group 'net.jscry'
+version '1.0-SNAPSHOT'
+applicationDefaultJvmArgs = ["-Xmx3400m", "-Xms800m"]
+mainClassName = "net.jscry.ServerKt"
+
+
+sourceSets {
+    main.kotlin.srcDirs += "build/generated-sources/kotlin"
+    main.resources.srcDirs += "build/generated-resources"
+}
+
+
+
+//**********************
+//* Main tasks to run
+//**********************
+compileKotlin.dependsOn "generatePostgresInterface"
+test.dependsOn "webFiles"
+
+task freshBuild {
+    group = 'toplevel'
+    dependsOn "build"
+}
+
+//Generate table classes
+task generatePostgresInterface(type : JavaExec){
+    group = "generation"
+    classpath = sourceSets.main.compileClasspath
+    main = "net.justmachinery.kdbgen.GeneratePostgresInterfaceKt"
+    args '--databaseUrl=jdbc:postgresql://localhost:5432/jscry?user=jscry&password=jscry'
+    args '--enumPackage=net.jscry.database.enums'
+    args '--tablePackage=net.jscry.database.tables.dsl'
+}
+compileKotlin.dependsOn('generatePostgresInterface')
+
+//Generate endpoint typescript for the web subproject
+task generateTypeScript(type: JavaExec) {
+    group = "generation"
+    classpath = sourceSets.main.runtimeClasspath
+    main = "net.jscry.build.GenerateRestTypeScriptDefinitionKt"
+    inputs.files(sourceSets.main.kotlin)
+    outputs.file("build/tsgen/endpoints.ts")
+}
+
+generateTypeScript.mustRunAfter "compileKotlin"
+
+//Javascript
+/**
+ * Kotlin + Typescript + JS -> single file for bundling
+ */
+node {
+    download = true
+}
+
+String webEmbedFileName = "jscry-web" //Change value in webpack.config.js when changing this
+
+task runWebpack(type: NodeTask){
+    script = file('node_modules/.bin/webpack')
+    dependsOn "npmInstall", "generateTypeScript"}
+
+task runWebpackProd(type: NodeTask){
+    environment = [ NODE_ENV: 'production' ]
+    script = file('node_modules/.bin/webpack')
+    dependsOn "npmInstall", "generateTypeScript"
+}
+
+task webFiles(){
+    dependsOn "runWebpack", "runWebpackProd"
+}
+webFiles.mustRunAfter "clean"
+
+task copyWebextensionFilesDev {
+    doLast {
+        copy {
+            from "src/main/webextension"
+            include "**/*"
+            into "build/webextension_dev"
+        }
+        copy {
+            from "build/generated-resources/webextension"
+            include "**/*"
+            into "build/webextension_dev/build"
+        }
+        copy {
+            from "build/generated-resources/static/web/"
+            include "*"
+            into "build/webextension_dev/build/embedding"
+        }
+    }
+    dependsOn "runWebpack"
+}
+
+task copyWebextensionFilesProd {
+    doLast {
+        copy {
+            from "src/main/webextension"
+            include "**/*"
+            into "build/webextension_prod"
+        }
+        copy {
+            from "build/generated-resources/webextension/prod"
+            include "**/*"
+            into "build/webextension_prod/build"
+        }
+        copy {
+            from "build/generated-resources/static/web/"
+            include "jscry-web-min.js"
+            rename "jscry-web-min.js", "jscry-web.js"
+            into "build/webextension_prod/build/embedding"
+        }
+    }
+    dependsOn "runWebpackProd"
+}
+
+task packWebextension(type: Zip){
+    from 'build/webextension_prod'
+    include '**/*'
+    archiveName "jScryWebExtension.zip"
+    dependsOn "copyWebextensionFilesProd"
+}
+
+//**********************
+//* Dependencies
+//**********************
+repositories {
+    mavenCentral()
+    jcenter()
+    maven {
+        url "http://dl.bintray.com/kotlin/ktor"
+    }
+    maven {
+        url "http://dl.bintray.com/kotlin/exposed"
+    }
+    maven {
+        url 'https://repo.spring.io/libs-snapshot'
+    }
+    maven {
+        url "https://maven.atlassian.com/content/groups/public"
+    }
+    maven { url 'https://dl.bintray.com/scottpjohnson/generic/' }
+}
+
+dependencies {
+    //Kotlin standard library
+    compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    compile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
+    //Web framework
+    compile("org.springframework.boot:spring-boot-starter-web:2.0.0.M7"){
+        exclude module: "spring-boot-starter-logging"
+        exclude module: "spring-boot-starter-tomcat"
+        exclude module: "commons-logging"
+    }
+    //compile "org.springframework.boot:spring-boot-starter-undertow:2.0.0.M1"
+    compile 'org.springframework.boot:spring-boot-starter-jetty:2.0.0.M7'
+    compile "org.springframework:spring-websocket:5.0.0.RC1"
+    compile "org.springframework:spring-webmvc:5.0.0.RC1"
+
+    //JSON serialization
+    compile 'com.google.code.gson:gson:2.8.1'
+
+    compile "com.fasterxml.jackson.core:jackson-core:2.9.0"
+    compile "com.fasterxml.jackson.module:jackson-module-kotlin:2.9.0"
+    //Logging
+    compile "org.slf4j:slf4j-simple:1.7.21"
+    compile "org.slf4j:jcl-over-slf4j:1.7.1"
+    compile "io.github.microutils:kotlin-logging:1.4.2"
+    //Postgre drivers
+    compile "org.postgresql:postgresql:42.1.1"
+    //Connection pooling
+    compile "com.mchange:c3p0:0.9.5.2"
+    //Utility
+    compile 'com.google.guava:guava:22.0'
+    //SQL/DAO
+    compile "com.github.andrewoma.kwery:core:0.16"
+    //Caching
+    compile 'org.ehcache:ehcache:3.4.0'
+    //Caching-serialization
+    compile 'com.esotericsoftware:kryo:4.0.1'
+
+    //Authentication
+    compile 'io.jsonwebtoken:jjwt:0.9.0'
+    compile 'com.google.apis:google-api-services-oauth2:v1-rev138-1.23.0'
+    //Reflections!
+    compile 'org.reflections:reflections:0.9.11'
+    //TypeScript generator!
+    compile group: 'cz.habarta.typescript-generator', name: 'typescript-generator-core', version: '1.25.322'
+    //The closure compiler's parser supports ES6!
+    compile 'com.google.javascript:closure-compiler:v20170521'
+    //Testing?
+    testCompile 'io.kotlintest:kotlintest:2.0.3'
+    //There are a few useful utilities from spring.
+    compile group: 'org.springframework', name: 'spring-jdbc', version: '4.3.7.RELEASE'
+    //Commons collections!
+    compile group: 'org.apache.commons', name: 'commons-collections4', version: '4.1'
+    //JS diffing
+    compile group: 'com.github.gumtreediff', name: 'core', version: '2.0.0'
+    //Postgres interface
+    compile 'net.justmachinery.kdbgen:kdbgen:0.3.3'
+    //V8 (node) bindings, because Nashorn is unacceptably slow
+    compile 'com.eclipsesource.j2v8:j2v8_linux_x86_64:4.7.1'
+    //Downloading sourcemaps
+    compile 'com.google.http-client:google-http-client:1.22.0'
+    //Sending emails
+    compile 'com.mailjet:mailjet-client:4.0.5'
+}

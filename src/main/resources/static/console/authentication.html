@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <!-- No, we didn't care enough about this page to optimize it. -->
+    <title>jScry Login</title>
+    <style type="text/css">
+        body {
+            margin: 40px auto;
+            max-width: 650px;
+            line-height: 1.6;
+            font-size: 18px;
+            color: #444;
+            padding: 0 10px
+        }
+
+        h1, h2, h3 {
+            line-height: 1.2
+        }
+    </style>
+    <script src="https://www.gstatic.com/firebasejs/3.6.10/firebase.js"></script>
+    <script>
+        // Initialize Firebase
+        var config = {
+            apiKey: "AIzaSyDhG-MfpI5CwtnpKcx76k_QuxYwHs4AxYE",
+            authDomain: "jscry-a3f6f.firebaseapp.com",
+            databaseURL: "https://jscry-a3f6f.firebaseio.com",
+            storageBucket: "jscry-a3f6f.appspot.com",
+            messagingSenderId: "1050970442491"
+        };
+        firebase.initializeApp(config);
+    </script>
+    <script src="https://cdn.firebase.com/libs/firebaseui/1.0.0/firebaseui.js"></script>
+    <link type="text/css" rel="stylesheet" href="https://cdn.firebase.com/libs/firebaseui/1.0.0/firebaseui.css" />
+    <script type="text/javascript">
+        //Why isn't this a standard part of Javascript? Seriously?
+        function getParameterByName(name) {
+            var url = window.location.href;
+            name = name.replace(/[\[\]]/g, "\\$&");
+            var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+                results = regex.exec(url);
+            if (!results) return null;
+            if (!results[2]) return '';
+            return decodeURIComponent(results[2].replace(/\+/g, " "));
+        }
+        var uiConfig = {
+            signInOptions: [
+                firebase.auth.EmailAuthProvider.PROVIDER_ID,
+                firebase.auth.GoogleAuthProvider.PROVIDER_ID,
+                firebase.auth.GithubAuthProvider.PROVIDER_ID
+            ],
+            signInFlow: "popup",
+            tosUrl: 'termsofservice.html',
+            callbacks: {
+                signInSuccess: function(currentUser, credential, redirectUrl){
+                    firebase.auth().currentUser.getToken().then(function(token){
+                        var expiration = new Date();
+                        expiration.setDate(expiration.getDate() + 14);
+                        document.cookie = "auth=" + token + ";expires=" + expiration.toUTCString() + (document.location.protocol === "https:" ? ";secure" : "") + ";path=/";
+                        window.location.href = getParameterByName("redirect") || "console.html";
+                    });
+                    return false;
+                }
+            }
+        };
+
+        var ui = new firebaseui.auth.AuthUI(firebase.auth());
+        ui.start('#firebaseui-auth-container', uiConfig);
+    </script>
+</head>
+<body>
+<div align="center">
+    <h1>Login or Signup to jScry</h1>
+    Sign in through any of the options below.
+</div>
+<div id="firebaseui-auth-container"></div>
+</body>
+</html>

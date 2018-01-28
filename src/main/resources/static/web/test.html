@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Script Test Page</title>
+    <script src="https://localhost:8080/web/config.js?apiKey=e5b72ba4-9c06-47aa-86b3-193b78732aa9"></script>
+    <script src="https://localhost:8080/web/vendor-jscry-web.js"></script>
+    <script name="jScryScript" src="https://localhost:8080/web/jscry-web.js"></script>
+    <script src="test.js"></script>
+    <script src="vendor-test-sourcemap.js"></script>
+    <script src="test-sourcemap.js"></script>
+</head>
+<body>
+    <script>
+        var div = document.createElement("div");
+        div.innerHTML = "Hello, world!";
+        document.body.appendChild(div);
+    </script>
+</body>
+</html>
